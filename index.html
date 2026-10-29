@@ -2,13 +2,13 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#213b48">
   <title>Météo Écurie - La Massicoterie</title>
   <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="tailwind.css">
   <!-- Phosphor Icons -->
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="icons/style.css">
   <style>
     html { min-height: 100%; background: #213b48; }
     body { background: transparent; color: #f8fafc; font-family: system-ui, sans-serif; isolation: isolate; }
@@ -24,6 +24,15 @@
     header { padding: 14px; border-radius: 16px; gap: 12px; }
     header > div, .flex-1 { min-width: 0; }
     header button { flex-shrink: 0; }
+    #brand-logo { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; }
+    #brand-logo:focus-visible { outline: 2px solid #fcd477; outline-offset: 3px; }
+    .coin-dialog { position: fixed; inset: 0; margin: 0; width: 100%; max-width: none; height: 100%; max-height: none; padding: 0; border: 0; color: #f8fafc; background: rgba(235,248,255,.035); }
+    .coin-dialog::backdrop { background: rgba(16,33,40,.18); -webkit-backdrop-filter: blur(8px) saturate(120%); backdrop-filter: blur(8px) saturate(120%); }
+    .coin-stage { position: absolute; inset: 0; touch-action: none; }
+    .coin-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .coin-toolbar { position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); z-index: 1; display: flex; gap: 8px; }
+    .coin-toolbar button { background: rgba(16,25,28,.8); }
+    .coin-status { position: absolute; inset: 40% 24px auto; text-align: center; color: #d3e0e6; font-size: 13px; }
     body .text-slate-400 { color: #d3e0e6; }
     body .text-slate-500 { color: #b7cbd4; }
     #thi-badge { text-align: center; flex-shrink: 0; }
@@ -58,6 +67,59 @@
     .week-rain { color: #bce3ed; text-align: right; font-size: 11px; }
     .week-temperatures { display: flex; justify-content: flex-end; gap: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .week-temperatures span { color: #bfd0da; }
+    .bug-summary { display: flex; align-items: flex-start; gap: 12px; padding: 16px; cursor: pointer; list-style: none; }
+    .bug-summary::-webkit-details-marker { display: none; }
+    .bug-summary:focus-visible, .bug-source-link:focus-visible { outline: 2px solid #fcd477; outline-offset: 3px; border-radius: 8px; }
+    .bug-chevron { flex-shrink: 0; margin-top: 5px; color: #d3e0e6; transition: transform .2s ease; }
+    details[open] .bug-chevron { transform: rotate(180deg); }
+    .bug-updates { margin: 0 16px; padding: 16px 0; border-top: 1px solid rgba(255,255,255,.16); }
+    .bug-update { display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: start; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+    .bug-update:last-of-type { border-bottom: 0; }
+    .bug-source-link { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.22); border-radius: 8px; color: #fcd477; font-size: 23px; }
+    .bug-source-link:hover { background: rgba(255,255,255,.1); }
+    .bug-update p { font-size: 12px; line-height: 1.65; color: #d3e0e6; margin-top: 5px; }
+    .bug-update .bug-source-meta { font-size: 10px; color: #b7cbd4; }
+    .blanket-content { margin: 0 16px; padding: 16px 0; border-top: 1px solid rgba(255,255,255,.16); }
+    .blanket-content p, .blanket-dialog p { font-size: 12px; line-height: 1.65; color: #d3e0e6; }
+    .blanket-now-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .blanket-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid rgba(255,255,255,.24); border-radius: 8px; color: #fcd477; font-size: 22px; }
+    .blanket-icon-button:hover { background: rgba(255,255,255,.1); }
+    .blanket-icon-button:focus-visible, .blanket-hour:focus-visible { outline: 2px solid #fcd477; outline-offset: 2px; }
+    .blanket-content .blanket-action { font-size: 18px; font-weight: 700; line-height: 1.45; color: #fff0bd; margin: 10px 0; }
+    .blanket-dialog { margin: auto; width: calc(100% - 32px); max-width: 440px; max-height: 85vh; max-height: 85dvh; overflow-y: auto; padding: 20px; color: #f8fafc; background: #19333e; border: 1px solid rgba(255,255,255,.3); border-radius: 8px; box-shadow: 0 24px 80px rgba(0,0,0,.4); }
+    .blanket-dialog::backdrop { background: rgba(0,0,0,.65); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    .blanket-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; line-height: 1.6; margin: 12px 0; }
+    .blanket-table th, .blanket-table td { text-align: left; vertical-align: top; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,.12); overflow-wrap: anywhere; }
+    .blanket-table th:first-child { width: 39%; }
+    .blanket-table th { color: #e4edf0; }
+    .blanket-table td { color: #d3e0e6; }
+    .blanket-day { padding-top: 16px; margin-top: 16px; border-top: 1px solid rgba(255,255,255,.16); }
+    .blanket-plot { display: flex; min-width: 0; margin-top: 14px; }
+    .blanket-axis { position: relative; flex: 0 0 42px; height: 176px; font-size: 10px; color: #c9dbe2; }
+    .blanket-axis span { position: absolute; transform: translateY(-50%); }
+    .blanket-chart-track svg { display: block; height: 176px; }
+    .blanket-hour { flex: 0 0 44px; width: 44px; height: 54px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; border-top: 1px solid rgba(255,255,255,.15); font-size: 11px; color: #e4edf0; }
+    .blanket-hour small { font-size: 10px; color: #fcd477; }
+    .blanket-hour[aria-pressed="true"] { background: rgba(255,255,255,.12); border-top-color: #fcd477; }
+    .blanket-content .blanket-chart-detail { min-height: 70px; margin-top: 12px; font-size: 11px; }
+    .ground-content, .news-content { margin: 0 16px; padding: 16px 0; border-top: 1px solid rgba(255,255,255,.16); }
+    .ground-content p, .news-content p { font-size: 12px; line-height: 1.65; color: #d3e0e6; }
+    .ground-topic + .ground-topic { margin-top: 16px; }
+    .ground-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0 16px; font-size: 11px; }
+    .ground-metrics dt { color: #b7cbd4; }
+    .ground-metrics dd { color: #f8fafc; margin-top: 3px; font-weight: 600; }
+    .news-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+    .news-controls label { display: grid; gap: 5px; flex: 1 1 100px; min-width: 0; color: #d3e0e6; font-size: 11px; }
+    .news-controls select { width: 100%; min-width: 0; padding: 9px 7px; color: #f8fafc; background: #19333e; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; font-size: 12px; }
+    .news-controls select:focus-visible, .equestrian-news-link:focus-visible { outline: 2px solid #fcd477; outline-offset: 3px; }
+    .news-list { list-style: none; margin-top: 10px; }
+    .news-item { padding: 14px 0; border-top: 1px solid rgba(255,255,255,.13); }
+    .equestrian-news-link { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; color: #f8fafc; font-size: 13px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+    .equestrian-news-link i { flex-shrink: 0; color: #fcd477; font-size: 19px; margin-top: 2px; }
+    .news-content .news-meta { font-size: 10px; color: #b7cbd4; margin-top: 6px; }
+    .news-sources { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 11px; color: #bce3ed; }
+    .news-sources a { text-decoration: underline; text-underline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) { .bug-chevron { transition: none; } }
     [hidden] { display: none !important; }
     .flex.justify-between.items-center { gap: 8px; flex-wrap: wrap; }
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -65,6 +127,22 @@
     }
     @media (max-width: 360px) { header { padding: 10px; } #thi-badge { font-size: 10px; } }
   </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ÉquiMétéo">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    body {
+      padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
+      padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+      padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+    }
+  </style>
+  <script src="app.js" defer></script>
+  <meta name="equimeteo-news-mode" content="snapshot">
+  <link rel="icon" type="image/png" href="icon-192.png">
 </head>
 <body class="p-4 max-w-md mx-auto min-h-screen pb-12">
   <canvas id="weather-background" aria-hidden="true"></canvas>
@@ -73,7 +151,7 @@
   <header class="flex justify-between items-center mb-6 pt-2">
     <div>
       <h1 class="text-xl font-bold flex items-center gap-2 text-amber-400">
-        <i class="ph ph-horse text-2xl"></i> ÉquiMétéo
+        <button id="brand-logo" type="button" aria-label="Ouvrir la pièce Sol Blade" title="ÉquiMétéo" aria-haspopup="dialog" aria-controls="coin-dialog" onclick="openLogoCoin()"><i class="ph ph-horse text-2xl" aria-hidden="true"></i></button> ÉquiMétéo
       </h1>
       <p class="text-xs text-slate-400">La Massicoterie • Les Essarts-le-Roi (78)</p>
     </div>
@@ -141,15 +219,58 @@
   
   <div class="space-y-3 mb-6">
     <!-- Conseils Couverture -->
-    <div class="card rounded-xl p-4 flex gap-3 items-start">
-      <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400 text-2xl">
-        <i class="ph ph-coat-hanger"></i>
+    <details class="card rounded-xl" id="blanket-section">
+      <summary class="bug-summary">
+        <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400 text-2xl" aria-hidden="true">
+          <i class="ph ph-coat-hanger"></i>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-bold text-slate-200">Recommandation Couverture</h3>
+          <p class="text-xs text-slate-400 mt-1" id="blanket-advice">Analyse en cours...</p>
+        </div>
+        <i class="ph ph-caret-down bug-chevron" aria-hidden="true"></i>
+      </summary>
+      <div class="blanket-content">
+        <div class="blanket-now-heading">
+          <h4 class="text-sm font-bold text-slate-200">Au pré maintenant</h4>
+          <button type="button" class="blanket-icon-button" id="blanket-table-button" aria-label="Consulter le tableau de couverture" title="Consulter le tableau de couverture" aria-haspopup="dialog" aria-controls="blanket-table-dialog" onclick="document.getElementById('blanket-table-dialog').showModal()"><i class="ph ph-table" aria-hidden="true"></i></button>
+        </div>
+        <p id="blanket-now-action" class="blanket-action" aria-live="polite">Conseil indisponible pour le moment.</p>
+        <p id="blanket-now-reason"></p>
+        <p id="blanket-now-weather" class="mt-2"></p>
+        <p class="mt-2">Repère selon votre tableau, à adapter à la tonte, à l'état de santé et à l'abri. Conseil pour le départ, pas pour toute la durée de sortie : réévaluer si la météo change.</p>
+        <p id="blanket-status" class="mt-3" role="status">Chargement des propositions pour demain...</p>
+        <section class="blanket-day" aria-labelledby="blanket-tomorrow-title">
+          <h4 class="text-sm font-bold text-slate-200" id="blanket-tomorrow-title">Demain</h4>
+          <p id="blanket-tomorrow-meta" class="mt-1">Prévisions Open-Meteo, à réévaluer avant utilisation.</p>
+          <div id="blanket-tomorrow"></div>
+          <p id="blanket-tomorrow-detail" class="blanket-chart-detail" aria-live="polite"></p>
+        </section>
       </div>
-      <div class="flex-1">
-        <h3 class="text-sm font-bold text-slate-200">Recommandation Couverture</h3>
-        <p class="text-xs text-slate-400 mt-1" id="blanket-advice">Analyse en cours...</p>
-      </div>
-    </div>
+    </details>
+
+    <dialog class="blanket-dialog" id="blanket-table-dialog" aria-labelledby="blanket-table-title">
+        <div class="blanket-now-heading">
+          <h4 class="text-sm font-bold" id="blanket-table-title">Tableau de couverture</h4>
+          <form method="dialog"><button type="submit" class="blanket-icon-button" aria-label="Fermer le tableau" title="Fermer le tableau" autofocus><i class="ph ph-x" aria-hidden="true"></i></button></form>
+        </div>
+        <table class="blanket-table">
+          <caption class="text-xs text-slate-400 text-left mt-2">Repères de votre photo · Température extérieure, pas le ressenti</caption>
+          <thead><tr><th scope="col">Température extérieure</th><th scope="col">Couverture conseillée</th></tr></thead>
+          <tbody>
+            <tr><td>Plus de 12 °C</td><td>Rien</td></tr>
+            <tr><td>10 à 12 °C</td><td>Rien</td></tr>
+            <tr><td>8 à 10 °C</td><td>0 g si pluie et vent</td></tr>
+            <tr><td>5 à 8 °C</td><td>0 g ; 50 g si vent froid soutenu</td></tr>
+            <tr><td>2 à 5 °C</td><td>50 g ; 150 g si pluie froide et vent fort</td></tr>
+            <tr><td>−3 à 2 °C</td><td>150 g</td></tr>
+            <tr><td>−7 à −3 °C</td><td>150 g ; 250 g si vent fort et froid humide</td></tr>
+          </tbody>
+        </table>
+        <p>0 g = imperméable sans garnissage. Pour les bornes communes, la tranche la plus chaude est retenue : à 10 °C, rien ; à 8 °C, 0 g seulement si pluie et vent. Sous −7 °C : hors tableau, pas de grammage extrapolé.</p>
+        <p class="mt-2">Seuils utilisés pour interpréter le tableau : vent soutenu ≥ 20 km/h, vent fort ≥ 30 km/h, pluie &gt; 0 mm/h ; froid humide = pluie ou humidité ≥ 85 %. Ces seuils ne figurent pas sur la photo.</p>
+        <p class="mt-2">Repères à adapter à la tonte, à l'état corporel, à l'âge, à la santé et à l'abri du cheval. Vérifier son confort sous la couverture et éviter la surchauffe ; en cas de doute, demander conseil à votre vétérinaire.</p>
+    </dialog>
 
     <!-- Indice de Stress Thermique (THI) -->
     <div class="card rounded-xl p-4 flex gap-3 items-start">
@@ -165,30 +286,274 @@
       </div>
     </div>
 
-    <!-- Sols et Paddock (Gale de boue / Gel) -->
-    <div class="card rounded-xl p-4 flex gap-3 items-start">
-      <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-2xl">
-        <i class="ph ph-plant"></i>
+    <details class="card rounded-xl" id="ground-section">
+      <summary class="bug-summary">
+        <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-2xl" aria-hidden="true"><i class="ph ph-plant"></i></div>
+        <div class="flex-1">
+          <h3 class="text-sm font-bold text-slate-200">État des sols & Vent</h3>
+          <p class="text-xs text-slate-400 mt-1" id="ground-advice">Analyse du sol et des intempéries...</p>
+        </div>
+        <i class="ph ph-caret-down bug-chevron" aria-hidden="true"></i>
+      </summary>
+      <div class="ground-content">
+        <p>Estimations Open-Meteo : ni diagnostic du terrain, ni constat de dégâts. La nature du sol, son drainage, son exposition et les arbres présents modifient fortement le risque.</p>
+        <dl id="ground-metrics" class="ground-metrics"></dl>
+        <section class="ground-topic"><h4 class="text-sm font-bold text-slate-200">Sol, gel & Portance</h4><p id="ground-soil-detail" class="mt-1">Données en cours de chargement.</p></section>
+        <section class="ground-topic"><h4 class="text-sm font-bold text-slate-200">Pluie, ruissellement & Érosion</h4><p id="ground-rain-detail" class="mt-1">Données en cours de chargement.</p></section>
+        <section class="ground-topic"><h4 class="text-sm font-bold text-slate-200">Vent, poussière & Débris</h4><p id="ground-wind-detail" class="mt-1">Données en cours de chargement.</p></section>
+        <p class="mt-3" id="ground-status" role="status">Vérifier sur place la stabilité du terrain et les branches avant de circuler ; respecter les fermetures et alertes officielles.</p>
       </div>
-      <div class="flex-1">
-        <h3 class="text-sm font-bold text-slate-200">État des Sols & Paddocks</h3>
-        <p class="text-xs text-slate-400 mt-1" id="ground-advice">Risque boue / praticabilité de la carrière...</p>
-      </div>
-    </div>
+    </details>
 
     <!-- Risque Parasites / Insectes -->
-    <div class="card rounded-xl p-4 flex gap-3 items-start">
-      <div class="p-2 rounded-lg bg-purple-500/10 text-purple-400 text-2xl">
-        <i class="ph ph-bug"></i>
+    <details class="card rounded-xl" id="bug-section">
+      <summary class="bug-summary">
+        <div class="p-2 rounded-lg bg-purple-500/10 text-purple-400 text-2xl" aria-hidden="true">
+          <i class="ph ph-bug"></i>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-bold text-slate-200">Insectes & Dermite (DERE)</h3>
+          <p class="text-xs text-slate-400 mt-1" id="bug-advice">Activité des culicoïdes et mouches...</p>
+        </div>
+        <i class="ph ph-caret-down bug-chevron" aria-hidden="true"></i>
+      </summary>
+      <div class="bug-updates">
+        <h4 class="text-sm font-bold text-slate-200">Vigilance locale · Yvelines & Rambouillet</h4>
+        <p class="text-xs text-slate-500 mt-1">Sources consultées le <time datetime="2026-10-29">29 octobre 2026</time> · Sélection mise à jour manuellement.</p>
+        <p id="bug-news-status" class="text-xs text-slate-400 mt-2" role="status">Vérification des dates des publications...</p>
+        <p class="text-xs text-slate-400 mt-2">Le conseil ci-dessus est une estimation météo, pas une mesure de présence des insectes. La DERE est liée aux piqûres de culicoïdes ; les autres espèces ci-dessous présentent des risques distincts.</p>
+        <article class="bug-update" data-updated="2026-09-18" hidden>
+          <div>
+            <h5 class="text-xs font-bold text-slate-200">Moustique tigre · Île-de-France</h5>
+            <p class="bug-source-meta">ARS Île-de-France · Page du <time datetime="2026-09-18">18 septembre 2026</time> · Dossier actualisé en août 2026</p>
+            <p>Le dossier régional actualisé décrit la surveillance du moustique tigre et les actions menées au Vésinet, dans les Yvelines. Vider les récipients inutilisés et couvrir les récupérateurs d'eau aide à réduire les gîtes larvaires, sans supprimer l'accès des chevaux à l'eau potable. Ce dossier ne confirme pas une présence à l'écurie.</p>
+          </div>
+          <a class="bug-source-link" href="https://www.iledefrance.ars.sante.fr/moustique-tigre-lile-de-france-en-vigilance-active" target="_blank" rel="noopener noreferrer" title="Consulter le dossier moustique tigre de l'ARS (nouvel onglet)" aria-label="Consulter le dossier moustique tigre de l'ARS (nouvel onglet)"><i class="ph ph-bug" aria-hidden="true"></i></a>
+        </article>
+        <article class="bug-update" data-updated="2026-06-05" hidden>
+          <div>
+            <h5 class="text-xs font-bold text-slate-200">Chenilles processionnaires · Forêt de Rambouillet</h5>
+            <p class="bug-source-meta">Ville de Rambouillet · Mis à jour le <time datetime="2026-06-05">5 juin 2026</time></p>
+            <p>La Ville a documenté une prolifération importante et des restrictions temporaires dans plusieurs secteurs forestiers en mai et juin 2026. Ces arrêtés datés ne signifient pas que la forêt est fermée aujourd'hui. Ne pas toucher aux chenilles, aux nids ou aux pièges ; tenir les animaux à distance et respecter la signalisation locale.</p>
+          </div>
+          <a class="bug-source-link" href="https://rambouillet.fr/actualite/lutte-contre-les-chenilles-processionnaires/" target="_blank" rel="noopener noreferrer" title="Consulter les informations de Rambouillet sur les chenilles processionnaires (nouvel onglet)" aria-label="Consulter les informations de Rambouillet sur les chenilles processionnaires (nouvel onglet)"><i class="ph ph-bug" aria-hidden="true"></i></a>
+        </article>
+        <p class="text-xs text-slate-400 mt-3">En cas de démangeaisons persistantes, de lésions ou de réaction inhabituelle chez un cheval, demander un avis vétérinaire.</p>
       </div>
-      <div class="flex-1">
-        <h3 class="text-sm font-bold text-slate-200">Insectes & Dermite (DERE)</h3>
-        <p class="text-xs text-slate-400 mt-1" id="bug-advice">Activité des culicoïdes et mouches...</p>
+    </details>
+    <details class="card rounded-xl" id="equestrian-news-section">
+      <summary class="bug-summary">
+        <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400 text-2xl" aria-hidden="true"><i class="ph ph-newspaper"></i></div>
+        <div class="flex-1">
+          <h3 class="text-sm font-bold text-slate-200">Informations équestres</h3>
+          <p class="text-xs text-slate-400 mt-1" id="equestrian-news-summary">Actualités du monde, de France et des Yvelines</p>
+        </div>
+        <i class="ph ph-caret-down bug-chevron" aria-hidden="true"></i>
+      </summary>
+      <div class="news-content">
+        <div class="news-controls">
+          <label for="news-period">Période<select id="news-period"><option value="1">24 heures</option><option value="3">3 jours</option><option value="7" selected>7 jours</option><option value="14">2 semaines</option><option value="30">30 jours</option></select></label>
+          <label for="news-region">Zone citée<select id="news-region"><option value="world">Monde · Toutes</option><option value="france">France</option><option value="yvelines">Yvelines · 78</option></select></label>
+          <button type="button" class="blanket-icon-button" id="news-refresh" aria-label="Actualiser les informations équestres" title="Actualiser les informations équestres" onclick="loadEquestrianNews(true)"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>
+        </div>
+        <p id="news-status" role="status" aria-live="polite">Actualités chargées à l'ouverture.</p>
+        <p id="news-updated" class="news-meta"></p>
+        <ul id="equestrian-news-list" class="news-list"></ul>
+        <p class="news-meta">Classement géographique indicatif d'après les flux. Titres et liens des éditeurs ; sélection limitée aux articles exposés dans leurs flux.</p>
+        <nav class="news-sources" aria-label="Sources d'actualités équestres">
+          <a href="https://www.leperon.fr/" target="_blank" rel="noopener noreferrer">L'Éperon</a>
+          <a href="https://grandprix.info/fr/" target="_blank" rel="noopener noreferrer">GRANDPRIX</a>
+          <a href="https://www.horseandhound.co.uk/" target="_blank" rel="noopener noreferrer">Horse & Hound</a>
+          <a href="https://www.ffe.com/" target="_blank" rel="noopener noreferrer">FFE</a>
+          <a href="https://news.google.com/search?q=site%3Ajds.fr%20Yvelines%20%C3%A9questre%20when%3A30d&amp;hl=fr&amp;gl=FR&amp;ceid=FR%3Afr" target="_blank" rel="noopener noreferrer">Agenda équestre 78 · JDS</a>
+        </nav>
       </div>
-    </div>
+    </details>
   </div>
 
+  <dialog id="coin-dialog" class="coin-dialog" aria-label="Pièce Sol Blade en trois dimensions">
+    <div id="coin-stage" class="coin-stage" role="img" aria-label="Pièce Sol Blade portant le logo, rotation interactive" tabindex="0"></div>
+    <div class="coin-toolbar">
+      <button type="button" id="coin-spin" class="blanket-icon-button" aria-label="Faire tourner la pièce" title="Faire tourner la pièce"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>
+      <button type="button" class="blanket-icon-button" aria-label="Fermer la pièce" title="Fermer la pièce" onclick="document.getElementById('coin-dialog').close()" autofocus><i class="ph ph-x" aria-hidden="true"></i></button>
+    </div>
+    <p id="coin-status" class="coin-status" role="status">Chargement...</p>
+  </dialog>
+
   <script>
+    let logoCoin = null;
+    let logoCoinLoading = false;
+    async function openLogoCoin() {
+      const dialog = document.getElementById('coin-dialog');
+      if (!dialog.open) dialog.showModal();
+      if (logoCoin) { logoCoin.start(); return; }
+      if (logoCoinLoading) return;
+      logoCoinLoading = true;
+      const status = document.getElementById('coin-status');
+      status.hidden = false;
+      status.textContent = 'Chargement...';
+      try {
+        const module = await import('./logo-coin.js');
+        logoCoin = await module.createLogoCoin(document.getElementById('coin-stage'), () => dialog.close());
+        status.hidden = true;
+        if (dialog.open) logoCoin.start();
+      } catch {
+        status.textContent = 'La pièce 3D est indisponible. Vérifiez la connexion et la prise en charge WebGL.';
+      } finally { logoCoinLoading = false; }
+    }
+    document.getElementById('coin-dialog').addEventListener('close', () => { if (logoCoin) logoCoin.stop(); });
+    document.getElementById('coin-dialog').addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.close(); }
+    });
+    document.getElementById('coin-spin').addEventListener('click', () => { if (logoCoin) logoCoin.spin(); });
+
+    const equestrianNews = { snapshot: null, delivery: '', loading: false };
+    const newsArticleHosts = ['leperon.fr', 'grandprix.info', 'horseandhound.co.uk', 'news.google.com'];
+
+    function filterEquestrianNews(items, days, region, now = Date.now()) {
+      const cutoff = now - days * 86400000;
+      return items.filter(item => {
+        const published = Date.parse(item.published_at);
+        return published >= cutoff && published <= now && (region === 'world' || item.regions?.includes(region));
+      }).sort((first, second) => Date.parse(second.published_at) - Date.parse(first.published_at));
+    }
+
+    function renderEquestrianNews() {
+      if (!equestrianNews.snapshot) return;
+      const days = Number(document.getElementById('news-period').value);
+      const region = document.getElementById('news-region').value;
+      const snapshot = equestrianNews.snapshot;
+      const list = document.getElementById('equestrian-news-list');
+      list.replaceChildren();
+      const safe = snapshot.items.filter(item => {
+        if (typeof item.title !== 'string' || typeof item.source !== 'string') return false;
+        try {
+          const link = new URL(item.url);
+          return link.protocol === 'https:' && !link.username && !link.password && newsArticleHosts.some(host => link.hostname === host || link.hostname.endsWith(`.${host}`));
+        } catch { return false; }
+      });
+      const items = filterEquestrianNews(safe, days, region);
+      items.forEach(item => {
+        const row = document.createElement('li');
+        row.className = 'news-item';
+        const link = document.createElement('a');
+        link.className = 'equestrian-news-link';
+        link.href = item.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.title = 'Lire sur le site source (nouvel onglet)';
+        const title = document.createElement('span');
+        title.textContent = item.title;
+        const icon = document.createElement('i');
+        icon.className = 'ph ph-arrow-square-out';
+        icon.setAttribute('aria-hidden', 'true');
+        link.append(title, icon);
+        const meta = document.createElement('p');
+        meta.className = 'news-meta';
+        const source = document.createElement('span');
+        source.textContent = `${item.source} · `;
+        const time = document.createElement('time');
+        time.dateTime = item.published_at;
+        time.textContent = new Date(item.published_at).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const place = document.createElement('span');
+        place.textContent = ` · ${item.regions?.includes('yvelines') ? 'Yvelines' : item.regions?.includes('france') ? 'France' : 'Monde'}`;
+        meta.append(source, time, place);
+        row.append(link, meta);
+        list.append(row);
+      });
+      const failures = (snapshot.sources || []).filter(source => !source.ok);
+      const stale = Date.now() - Date.parse(snapshot.generated_at) > 86400000;
+      const warning = failures.length ? ` ${failures.length} flux indisponible(s) : sélection incomplète.` : '';
+      document.getElementById('news-status').textContent = (items.length
+        ? `${items.length} article(s) correspondant aux filtres.`
+        : 'Aucun article correspondant aux filtres dans les flux disponibles.') + warning + (stale ? ' Collecte ancienne : actualisation nécessaire.' : '');
+      document.getElementById('equestrian-news-summary').textContent = items.length ? `${items.length} article(s) · ${days === 1 ? '24 heures' : `${days} jours`}` : 'Aucun article pour ces filtres dans la sélection disponible';
+      const updated = new Date(snapshot.generated_at).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
+      document.getElementById('news-updated').textContent = `Collecte : ${updated} · ${equestrianNews.delivery === 'live' ? 'Relais RSS, cache de 10 min' : 'Instantané enregistré, pas un flux direct'}.`;
+      try { localStorage.setItem('equestrian-news-filters', JSON.stringify({ days, region })); } catch {}
+    }
+
+    async function fetchNewsJson(path) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      try {
+        const response = await fetch(new URL(path, location.href), { signal: controller.signal, cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data.items) || !Number.isFinite(Date.parse(data.generated_at))) throw new Error('Flux invalide');
+        return data;
+      } finally { clearTimeout(timer); }
+    }
+
+    async function loadEquestrianNews(force = false) {
+      if (equestrianNews.loading) return;
+      if (equestrianNews.snapshot && !force && Date.now() - Date.parse(equestrianNews.snapshot.generated_at) < 600000) { renderEquestrianNews(); return; }
+      equestrianNews.loading = true;
+      const button = document.getElementById('news-refresh');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.firstElementChild.classList.add('animate-spin');
+      document.getElementById('news-status').textContent = 'Collecte des flux équestres en cours...';
+      try {
+        if (document.querySelector('meta[name="equimeteo-news-mode"]')?.content === 'snapshot') {
+          equestrianNews.snapshot = await fetchNewsJson('equestrian-news.json');
+          equestrianNews.delivery = 'snapshot';
+        } else {
+          try {
+            equestrianNews.snapshot = await fetchNewsJson(`api/equestrian-news${force ? '?refresh=1' : ''}`);
+            equestrianNews.delivery = 'live';
+          } catch {
+            equestrianNews.snapshot = await fetchNewsJson('equestrian-news.json');
+            equestrianNews.delivery = 'snapshot';
+          }
+        }
+        renderEquestrianNews();
+      } catch {
+        if (equestrianNews.snapshot) renderEquestrianNews();
+        document.getElementById('news-status').textContent = equestrianNews.snapshot
+          ? 'Actualisation impossible. Dernière sélection conservée ; vérifier sa date de collecte.'
+          : 'Actualités indisponibles. Vérifiez la connexion et le relais RSS ; les sites sources restent accessibles ci-dessous.';
+      } finally {
+        equestrianNews.loading = false;
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.firstElementChild.classList.remove('animate-spin');
+      }
+    }
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('equestrian-news-filters') || '{}');
+      if ([1, 3, 7, 14, 30].includes(saved.days)) document.getElementById('news-period').value = saved.days;
+      if (['world', 'france', 'yvelines'].includes(saved.region)) document.getElementById('news-region').value = saved.region;
+    } catch {}
+    document.getElementById('equestrian-news-section').addEventListener('toggle', event => {
+      if (event.currentTarget.open) loadEquestrianNews();
+    });
+    for (const id of ['news-period', 'news-region']) document.getElementById(id).addEventListener('change', () => loadEquestrianNews());
+
+    function filterBugUpdates(now = new Date()) {
+      const localDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(now);
+      const today = new Date(`${localDate}T00:00:00Z`);
+      const cutoff = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 6, 1));
+      const lastDay = new Date(Date.UTC(cutoff.getUTCFullYear(), cutoff.getUTCMonth() + 1, 0)).getUTCDate();
+      cutoff.setUTCDate(Math.min(today.getUTCDate(), lastDay));
+      let available = 0;
+      document.querySelectorAll('.bug-update[data-updated]').forEach(article => {
+        const updated = new Date(`${article.dataset.updated}T00:00:00Z`);
+        const recent = Number.isFinite(updated.getTime()) && updated >= cutoff && updated <= today;
+        article.hidden = !recent;
+        if (recent) available++;
+      });
+      document.getElementById('bug-news-status').textContent = available
+        ? 'Publications ou mises à jour de moins de six mois. Aucun suivi en temps réel.'
+        : 'Aucune publication vérifiée de moins de six mois disponible dans cette sélection.';
+    }
+
+    filterBugUpdates();
+    document.getElementById('bug-section').addEventListener('toggle', event => {
+      if (event.currentTarget.open) filterBugUpdates();
+    });
+
     const weatherCanvas = document.getElementById('weather-background');
     const weatherContext = weatherCanvas.getContext('2d');
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -525,10 +890,11 @@
         code: hourly.weather_code?.[index], rain: hourly.precipitation_probability?.[index], isDay: hourly.is_day?.[index]
       })).filter(hour => hour.time >= start);
       const daily = data.daily;
-      forecastDays = (daily?.time || []).slice(0, 7).map((time, index) => ({
+      const currentDate = (data.current.time || new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(new Date())).slice(0, 10);
+      forecastDays = (daily?.time || []).map((time, index) => ({
         time, minimum: daily.temperature_2m_min?.[index], maximum: daily.temperature_2m_max?.[index],
         code: daily.weather_code?.[index], rain: daily.precipitation_probability_max?.[index]
-      }));
+      })).filter(day => day.time >= currentDate).slice(0, 7);
       visibleHours = Math.min(12, forecastHours.length);
       selectedHour = 0;
       document.getElementById('forecast-scroll').scrollLeft = 0;
@@ -549,6 +915,238 @@
       document.getElementById(`${view}-tab`).focus();
     });
 
+    function getBlanketRecommendation(temperature, rain, wind, humidity) {
+      if (![temperature, rain, wind, humidity].every(Number.isFinite)) {
+        return { label: 'Données insuffisantes', reason: 'Pas de grammage calculé sans température, pluie, vent et humidité.' };
+      }
+      if (temperature < -7) return { label: 'Hors tableau', reason: 'Température inférieure à −7 °C : adaptation individuelle nécessaire.' };
+      if (temperature >= 10) return { label: 'Rien', reason: 'Température extérieure ≥ 10 °C.' };
+      if (temperature >= 8) return rain > 0 && wind >= 20
+        ? { label: '0 g', reason: '8 à 10 °C, pluie et vent soutenu : imperméable sans garnissage.' }
+        : { label: 'Rien', reason: '8 à 10 °C, sans pluie et vent soutenu réunis.' };
+      if (temperature >= 5) return wind >= 20
+        ? { label: '50 g', reason: '5 à 8 °C avec vent froid soutenu.' }
+        : { label: '0 g', reason: '5 à 8 °C sans vent soutenu.' };
+      if (temperature >= 2) return rain > 0 && wind >= 30
+        ? { label: '150 g', reason: '2 à 5 °C avec pluie froide et vent fort.' }
+        : { label: '50 g', reason: '2 à 5 °C, sans pluie froide et vent fort réunis.' };
+      if (temperature >= -3) return { label: '150 g', reason: '−3 à 2 °C.' };
+      return wind >= 30 && (rain > 0 || humidity >= 85)
+        ? { label: '250 g', reason: '−7 à −3 °C avec vent fort et froid humide.' }
+        : { label: '150 g', reason: '−7 à −3 °C, sans vent fort et froid humide réunis.' };
+    }
+
+    document.getElementById('blanket-table-dialog').addEventListener('click', event => {
+      const dialog = event.currentTarget;
+      const bounds = dialog.getBoundingClientRect();
+      if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) dialog.close();
+    });
+    document.getElementById('blanket-table-dialog').addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.currentTarget.close();
+      }
+    });
+
+    function renderBlanketDay(hourly, date, name) {
+      const list = document.getElementById(`blanket-${name}`);
+      list.replaceChildren();
+      const detail = document.getElementById(`blanket-${name}-detail`);
+      detail.textContent = '';
+      const hours = (hourly?.time || []).map((time, index) => ({
+        time, temperature: hourly.temperature_2m?.[index], rain: hourly.precipitation?.[index],
+        wind: hourly.wind_speed_10m?.[index], humidity: hourly.relative_humidity_2m?.[index]
+      })).filter(hour => hour.time.slice(0, 10) === date);
+      const title = document.getElementById(`blanket-${name}-title`);
+      title.textContent = `Demain · ${formatForecastDate(date, { day: 'numeric', month: 'long' })}`;
+      const meta = document.getElementById(`blanket-${name}-meta`);
+      const source = 'Prévisions Open-Meteo, à réévaluer avant utilisation.';
+      const valid = hours.filter(hour => [hour.temperature, hour.rain, hour.wind, hour.humidity].every(Number.isFinite));
+      if (!hours.length || !valid.length) {
+        meta.textContent = `${source} Données indisponibles pour cette journée.`;
+        return;
+      }
+      const temperatures = valid.map(hour => hour.temperature);
+      const partial = hours.length < 24 || valid.length < hours.length ? ' Journée partiellement renseignée.' : '';
+      meta.textContent = `${source} ${forecastTemperature(Math.min(...temperatures))} à ${forecastTemperature(Math.max(...temperatures))}C · ${valid.length}/${hours.length} heures exploitables.${partial}`;
+      renderBlanketChart(hours, name);
+    }
+
+    function renderBlanketChart(hours, name) {
+      const container = document.getElementById(`blanket-${name}`);
+      const levels = ['Rien', '0 g', '50 g', '150 g', '250 g'];
+      const step = 44;
+      const width = 24 * step;
+      const positionY = level => 148 - level * 33;
+      const entries = Array.from({ length: 24 }, (_, index) => {
+        const hour = hours.find(entry => Number(entry.time.slice(11, 13)) === index);
+        const recommendation = hour
+          ? getBlanketRecommendation(hour.temperature, hour.rain, hour.wind, hour.humidity)
+          : { label: 'Données insuffisantes', reason: 'Pas de données météo pour cette heure.' };
+        return { hour, ...recommendation, level: levels.indexOf(recommendation.label) };
+      });
+      const plot = document.createElement('div');
+      plot.className = 'blanket-plot';
+      const axis = document.createElement('div');
+      axis.className = 'blanket-axis';
+      axis.setAttribute('aria-hidden', 'true');
+      const chart = svgElement('svg', { width, height: 176, viewBox: `0 0 ${width} 176`, role: 'img', 'aria-label': 'Couverture conseillée heure par heure : rien, imperméable 0 g, 50 g, 150 g ou 250 g. Les interruptions correspondent aux données insuffisantes ou hors tableau.' });
+      levels.forEach((label, level) => {
+        const text = document.createElement('span');
+        text.textContent = label;
+        text.style.top = `${positionY(level)}px`;
+        axis.append(text);
+        chart.append(svgElement('line', { x1: 0, x2: width, y1: positionY(level), y2: positionY(level), stroke: 'rgba(255,255,255,.14)' }));
+      });
+      const marker = svgElement('rect', { x: 0, y: 0, width: step, height: 176, fill: 'rgba(255,255,255,.08)' });
+      chart.append(marker);
+      let path = '';
+      let connected = false;
+      entries.forEach((entry, index) => {
+        if (entry.level < 0) {
+          connected = false;
+          const unknown = svgElement('text', { x: index * step + step / 2, y: 86, fill: '#c9dbe2', 'font-size': 12, 'text-anchor': 'middle' });
+          unknown.textContent = '?';
+          chart.append(unknown);
+          return;
+        }
+        const vertical = positionY(entry.level);
+        path += connected ? `V${vertical} H${(index + 1) * step} ` : `M${index * step},${vertical} H${(index + 1) * step} `;
+        connected = true;
+      });
+      chart.append(svgElement('path', { d: path, fill: 'none', stroke: '#fcd477', 'stroke-width': 3, 'stroke-linejoin': 'round', 'data-blanket-series': name }));
+      const scroller = document.createElement('div');
+      scroller.className = 'forecast-scroll';
+      scroller.tabIndex = 0;
+      scroller.setAttribute('role', 'region');
+      scroller.setAttribute('aria-label', 'Grammage horaire de demain, défilement horizontal');
+      const track = document.createElement('div');
+      track.className = 'blanket-chart-track';
+      track.style.width = `${width}px`;
+      const buttons = document.createElement('div');
+      buttons.className = 'forecast-hours';
+      const selectHour = index => {
+        const entry = entries[index];
+        marker.setAttribute('x', index * step);
+        [...buttons.children].forEach((button, buttonIndex) => button.setAttribute('aria-pressed', buttonIndex === index));
+        const weather = entry.hour && Number.isFinite(entry.hour.temperature)
+          ? ` ${entry.hour.temperature.toLocaleString('fr-FR')} °C · Vent ${Number.isFinite(entry.hour.wind) ? entry.hour.wind.toLocaleString('fr-FR') : '--'} km/h · Précipitations ${Number.isFinite(entry.hour.rain) ? entry.hour.rain.toLocaleString('fr-FR') : '--'} mm.` : '';
+        document.getElementById(`blanket-${name}-detail`).textContent = `${String(index).padStart(2, '0')} h – ${String(index + 1).padStart(2, '0')} h : ${entry.label}. ${entry.reason}${weather}`;
+      };
+      entries.forEach((entry, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'blanket-hour';
+        const label = `${String(index).padStart(2, '0')} h`;
+        button.setAttribute('aria-label', `${label} : ${entry.label}. ${entry.reason}`);
+        button.title = button.getAttribute('aria-label');
+        const time = document.createElement('span');
+        time.textContent = label;
+        const value = document.createElement('small');
+        value.textContent = entry.level < 0 ? '?' : entry.label;
+        button.append(time, value);
+        button.addEventListener('click', () => selectHour(index));
+        buttons.append(button);
+      });
+      chart.addEventListener('click', event => {
+        const bounds = chart.getBoundingClientRect();
+        const index = Math.max(0, Math.min(23, Math.floor((event.clientX - bounds.left) / bounds.width * 24)));
+        selectHour(index);
+      });
+      track.append(chart, buttons);
+      scroller.append(track);
+      plot.append(axis, scroller);
+      container.append(plot);
+      selectHour(0);
+    }
+
+    function updateBlanketAdvice(data) {
+      const current = data.current;
+      const recommendation = getBlanketRecommendation(current.temperature_2m, current.precipitation, current.wind_speed_10m, current.relative_humidity_2m);
+      document.getElementById('blanket-advice').textContent = `Maintenant : ${recommendation.label}. ${recommendation.reason}`;
+      const action = recommendation.label === 'Rien' ? 'Ne mettez pas de couverture pour le départ au pré.'
+        : recommendation.label === '0 g' ? 'Mettez une imperméable 0 g, sans garnissage.'
+        : ['50 g', '150 g', '250 g'].includes(recommendation.label) ? `Prévoyez une couverture de ${recommendation.label} pour le départ au pré.`
+        : 'Pas de grammage fiable à proposer pour le départ au pré.';
+      document.getElementById('blanket-now-action').textContent = action;
+      document.getElementById('blanket-now-reason').textContent = recommendation.reason;
+      const temperature = Number.isFinite(current.temperature_2m) ? `${current.temperature_2m.toLocaleString('fr-FR')} °C` : 'Température inconnue';
+      document.getElementById('blanket-now-weather').textContent = `${temperature} · Vent ${Number.isFinite(current.wind_speed_10m) ? current.wind_speed_10m.toLocaleString('fr-FR') : '--'} km/h · Précipitations ${Number.isFinite(current.precipitation) ? current.precipitation.toLocaleString('fr-FR') : '--'} mm · Humidité ${Number.isFinite(current.relative_humidity_2m) ? current.relative_humidity_2m : '--'} %`;
+      const today = (current.time || new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(new Date())).slice(0, 10);
+      const date = new Date(`${today}T12:00:00Z`);
+      date.setUTCDate(date.getUTCDate() + 1);
+      renderBlanketDay(data.hourly, date.toISOString().slice(0, 10), 'tomorrow');
+      document.getElementById('blanket-status').textContent = `Propositions horaires selon votre tableau · Fuseau Europe/Paris · Référence : ${formatForecastDate(today, { day: 'numeric', month: 'long' })}.`;
+    }
+
+    function updateGroundAdvice(data) {
+      const current = data.current;
+      const hourly = data.hourly;
+      const now = (current.time || '').slice(0, 13) + ':00';
+      const shift = hours => {
+        const date = new Date(`${now}Z`);
+        date.setUTCHours(date.getUTCHours() + hours);
+        return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 16) : '';
+      };
+      const records = (hourly?.time || []).map((time, index) => ({
+        time, rain: hourly.precipitation?.[index], gust: hourly.wind_gusts_10m?.[index], soil: hourly.soil_temperature_0cm?.[index]
+      }));
+      const past = records.filter(record => record.time >= shift(-24) && record.time < now);
+      const future = records.filter(record => record.time >= now && record.time < shift(24));
+      const total = records => records.length === 24 && records.every(record => Number.isFinite(record.rain))
+        ? records.reduce((sum, record) => sum + record.rain, 0) : null;
+      const previousRain = total(past);
+      const nextRain = total(future);
+      const groundTemperature = records.find(record => record.time === now)?.soil;
+      const gusts = [current.wind_gusts_10m, ...future.map(record => record.gust)].filter(Number.isFinite);
+      const maximumGust = gusts.length ? Math.max(...gusts) : null;
+      const frost = Number.isFinite(groundTemperature) ? groundTemperature <= 0 : Number.isFinite(current.temperature_2m) && current.temperature_2m <= 0;
+      const wet = (previousRain !== null && previousRain >= 10) || (nextRain !== null && nextRain >= 10) || (Number.isFinite(current.precipitation) && current.precipitation > 2);
+      const windy = maximumGust !== null && maximumGust >= 40;
+      const risks = [];
+      if (frost) risks.push('Gel possible en surface');
+      if (wet) risks.push('Sol humide et ruissellement possibles');
+      if (windy) risks.push('Rafales : vigilance débris et branches');
+      const hasData = [groundTemperature, current.temperature_2m, previousRain, nextRain, maximumGust].some(Number.isFinite);
+      document.getElementById('ground-advice').textContent = risks.length ? risks.join(' · ') : hasData
+        ? 'Pas de signal météo marqué dans les données disponibles ; contrôle du sol nécessaire.'
+        : 'Données insuffisantes pour estimer les risques du sol et du vent.';
+      document.getElementById('ground-soil-detail').textContent = !Number.isFinite(groundTemperature) && !Number.isFinite(current.temperature_2m)
+        ? 'Températures indisponibles : le risque de gel ne peut pas être évalué. Contrôler directement la surface, les zones glissantes et les variations de portance.'
+        : frost
+        ? "Gel possible : la surface peut devenir dure ou glissante, puis perdre sa portance au dégel. Sonder le terrain et rechercher plaques gelées, ornières et zones ramollies avant utilisation."
+        : "L'absence de gel prévu ne garantit pas la portance. Contrôler les zones compactées, les ornières, les affaissements et l'adhérence. Un sol humide peut se déformer sous les passages ; un sol sec peut devenir dur et poussiéreux.";
+      document.getElementById('ground-rain-detail').textContent = previousRain === null && nextRain === null
+        ? 'Cumuls de pluie incomplets ou indisponibles : impossible de quantifier l’apport d’eau sur 24 heures. Inspecter le drainage, les flaques, les rigoles et les zones meubles avant de circuler.'
+        : wet
+        ? "Les précipitations favorisent l'accumulation d'eau, les zones glissantes, le ravinement et l'érosion des chemins. Examiner les pentes et les évacuations ; ne pas emprunter un passage inondé ou dont le support est masqué. Le drainage local détermine l'impact réel."
+        : "Surveiller flaques persistantes, rigoles et matériaux emportés après une averse. Sur sol sec, un arrosage adapté peut limiter la poussière, sans créer de ruissellement. Les cumuls météo seuls ne permettent pas de conclure à un sol praticable.";
+      document.getElementById('ground-wind-detail').textContent = maximumGust === null
+        ? 'Rafales indisponibles : le risque lié au vent ne peut pas être évalué. Contrôler les débris et les branches fragilisées et consulter les alertes locales avant de circuler.'
+        : maximumGust >= 60
+        ? "Rafales fortes prévues : risque accru de chutes de branches, d'objets déplacés et de débris au sol. Éviter les secteurs arborés ou exposés tant que le risque persiste. Après l'épisode, contrôler les accès et signaler les arbres ou équipements instables sans s'en approcher."
+        : windy ? "Des rafales peuvent déplacer feuilles, petits débris et objets légers. Sur sol sec, elles remettent les poussières en suspension. Inspecter les passages, les abords boisés et les équipements après l'épisode ; un arbre fragilisé peut rester dangereux."
+        : "Même sans vent fort annoncé, inspecter les branches cassées et les objets au sol après un épisode venteux. Un sol détrempé peut réduire l'ancrage des arbres ; le risque dépend de leur état et de l'exposition locale.";
+      const metrics = document.getElementById('ground-metrics');
+      metrics.replaceChildren();
+      const format = (value, unit) => Number.isFinite(value) ? `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${unit}` : 'Non disponible';
+      for (const [label, value] of [
+        ['Sol en surface · modèle', format(groundTemperature, '°C')],
+        ['Pluie · 24 h écoulées', format(previousRain, 'mm')],
+        ['Pluie · prochaines 24 h', format(nextRain, 'mm')],
+        ['Rafale max. · prochaines 24 h', format(maximumGust, 'km/h')]
+      ]) {
+        const pair = document.createElement('div');
+        const term = document.createElement('dt');
+        const description = document.createElement('dd');
+        term.textContent = label;
+        description.textContent = value;
+        pair.append(term, description);
+        metrics.append(pair);
+      }
+      document.getElementById('ground-status').textContent = 'Risques indicatifs : seuils de repérage de 10 mm/24 h et 40/60 km/h en rafales, pas des seuils officiels de fermeture. Vérifier le terrain et les alertes locales.';
+    }
+
     async function fetchWeather() {
       const refreshIcon = document.getElementById('refresh-icon');
       refreshIcon.classList.add('animate-spin');
@@ -557,9 +1155,9 @@
       url.search = new URLSearchParams({
         latitude: LAT, longitude: LON,
         current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure,wind_speed_10m,wind_gusts_10m,weather_code,is_day',
-        hourly: 'temperature_2m,apparent_temperature,precipitation,weather_code,precipitation_probability,is_day',
+        hourly: 'temperature_2m,apparent_temperature,precipitation,weather_code,precipitation_probability,is_day,wind_speed_10m,relative_humidity_2m,wind_gusts_10m,soil_temperature_0cm',
         daily: 'temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max',
-        forecast_days: 7, timezone: 'Europe/Paris'
+        forecast_days: 7, past_days: 1, timezone: 'Europe/Paris'
       });
 
       try {
@@ -577,6 +1175,10 @@
         status.textContent = forecastHours.length || forecastDays.length
           ? 'Actualisation impossible. Prévisions précédentes affichées.'
           : 'Prévisions indisponibles. Vérifiez votre connexion puis actualisez.';
+        document.getElementById('blanket-status').textContent = hasWeather
+          ? 'Actualisation impossible : propositions précédentes, potentiellement périmées.'
+          : 'Propositions indisponibles. Vérifiez votre connexion puis actualisez.';
+        document.getElementById('ground-status').textContent = 'Actualisation météo impossible : les estimations de sol et de vent peuvent être absentes ou périmées.';
       } finally {
         refreshIcon.classList.remove('animate-spin');
       }
@@ -605,20 +1207,7 @@
       document.getElementById('weather-desc').innerText = getWeatherDescription(cur.weather_code);
       document.getElementById('current-date').innerText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-      // ANALYSE 1: Couverture
-      let blanketText = "";
-      if (appTemp < 0) {
-        blanketText = "Froid intense : Couverture chaude (200-300g) pour chevaux tondus / 100g ou imperméable doublée pour chevaux rustiques.";
-      } else if (appTemp >= 0 && appTemp < 10) {
-        blanketText = (rain > 0 || windSpeed > 25) 
-          ? "Humide et venteux : Imperméable (0g à 100g) recommandée pour éviter que le poil ne se plaque." 
-          : "Frais sec : Poil d'hiver suffisant pour non-tondu. 100g conseillé pour cheval tondu.";
-      } else if (appTemp >= 10 && appTemp < 18) {
-        blanketText = (rain > 1) ? "Pluie modérée : Imperméable simple (0g) si cheval au pré." : "Température tempérée : Pas de couverture nécessaire (sauf tondu sensible la nuit).";
-      } else {
-        blanketText = "Douceur/Chaleur : Laisser au naturel. Attention aux coups de soleil si ladre.";
-      }
-      document.getElementById('blanket-advice').innerText = blanketText;
+      updateBlanketAdvice(data);
 
       // ANALYSE 2: Indice THI Équin (T°F + Humidité)
       const tempF = (cur.temperature_2m * 9/5) + 32;
@@ -639,14 +1228,7 @@
         document.getElementById('thi-advice').innerText = "Danger coup de chaleur ! Réduire l'effort, privilégier le travail tôt le matin et ombre.";
       }
 
-      // ANALYSE 3: État des sols & Paddock
-      if (appTemp < 0) {
-        document.getElementById('ground-advice').innerText = "Sol dur / gelé. Attention aux tendons et risques d'abcès de pied. Vérifier que les abreuvoirs ne sont pas pris par la glace.";
-      } else if (rain > 2 || humidity > 90) {
-        document.getElementById('ground-advice').innerText = "Humidité élevée. Risque de gale de boue (surveiller les paturons) et ramollissement de la corne/fourchette. Paddocks gras.";
-      } else {
-        document.getElementById('ground-advice').innerText = "Sols praticables. Pensez à arroser la carrière si sol sec et venteux pour limiter les poussières respiratoires.";
-      }
+      updateGroundAdvice(data);
 
       // ANALYSE 4: Insectes
       if (tempC > 15 && windSpeed < 18) {
