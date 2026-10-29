@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#213b48">
+  <title>Météo Écurie - La Massicoterie</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    html { min-height: 100%; background: #213b48; }
+    body { background: transparent; color: #f8fafc; font-family: system-ui, sans-serif; isolation: isolate; }
+    #weather-background { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; pointer-events: none; }
+    body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgba(6, 18, 27, .16), rgba(6, 18, 27, .56)); }
+    .card, header {
+      background: rgba(19, 34, 43, .58);
+      -webkit-backdrop-filter: blur(22px) saturate(135%);
+      backdrop-filter: blur(22px) saturate(135%);
+      border: 1px solid rgba(255, 255, 255, .24);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 8px 32px rgba(0, 0, 0, .12);
+    }
+    header { padding: 14px; border-radius: 16px; gap: 12px; }
+    header > div, .flex-1 { min-width: 0; }
+    header button { flex-shrink: 0; }
+    body .text-slate-400 { color: #d3e0e6; }
+    body .text-slate-500 { color: #b7cbd4; }
+    #thi-badge { text-align: center; flex-shrink: 0; }
+    .forecast-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .forecast-tabs { display: flex; padding: 3px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; background: rgba(0,0,0,.15); }
+    .forecast-tabs button { padding: 6px 12px; border-radius: 5px; font-size: 12px; color: #d3e0e6; }
+    .forecast-tabs button[aria-selected="true"] { background: #e4edf0; color: #16323c; font-weight: 700; }
+    .forecast-tabs button:focus-visible, .hour-point:focus-visible, .forecast-next:focus-visible { outline: 2px solid #fcd477; outline-offset: 2px; }
+    .forecast-legend { display: flex; flex-wrap: wrap; gap: 14px; color: #e1eaee; font-size: 11px; margin-bottom: 12px; }
+    .forecast-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .forecast-legend b { width: 20px; border-top: 2px solid #fcd477; }
+    .forecast-legend .felt-line { border-color: #9de5ef; border-top-style: dashed; }
+    .forecast-chart { display: flex; min-width: 0; }
+    .forecast-axis { flex: 0 0 34px; position: relative; height: 184px; font-size: 10px; color: #c9dbe2; }
+    .forecast-axis span { position: absolute; transform: translateY(-50%); }
+    .forecast-scroll { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #a7bcc5 transparent; flex: 1; min-width: 0; }
+    .forecast-track { position: relative; }
+    .forecast-track svg { display: block; height: 184px; overflow: hidden; }
+    .forecast-hours { display: flex; }
+    .hour-point { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.12); font-size: 11px; color: #e1eaee; }
+    .hour-point[aria-pressed="true"] { background: rgba(255,255,255,.1); border-top-color: #fcd477; }
+    .hour-point i { font-size: 19px; color: #fcd477; }
+    .hour-point small { font-size: 10px; color: #bce3ed; }
+    .forecast-detail { min-height: 36px; margin-top: 10px; font-size: 11px; line-height: 18px; color: #e1eaee; }
+    .forecast-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; font-size: 10px; color: #c9dbe2; }
+    .forecast-next { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,.2); border-radius: 6px; color: #fcd477; flex-shrink: 0; }
+    .forecast-next:disabled { opacity: .35; }
+    .week-row { display: grid; grid-template-columns: minmax(68px,1fr) 24px 44px minmax(76px,1fr); align-items: center; gap: 8px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,.12); font-size: 12px; }
+    .week-row:first-child { border-top: 0; }
+    .week-row i { font-size: 21px; color: #fcd477; }
+    .week-row small { display: block; font-size: 10px; color: #c9dbe2; }
+    .week-rain { color: #bce3ed; text-align: right; font-size: 11px; }
+    .week-temperatures { display: flex; justify-content: flex-end; gap: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .week-temperatures span { color: #bfd0da; }
+    [hidden] { display: none !important; }
+    .flex.justify-between.items-center { gap: 8px; flex-wrap: wrap; }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .card, header { background: rgba(19, 34, 43, .92); }
+    }
+    @media (max-width: 360px) { header { padding: 10px; } #thi-badge { font-size: 10px; } }
+  </style>
+</head>
+<body class="p-4 max-w-md mx-auto min-h-screen pb-12">
+  <canvas id="weather-background" aria-hidden="true"></canvas>
+
+  <!-- Header -->
+  <header class="flex justify-between items-center mb-6 pt-2">
+    <div>
+      <h1 class="text-xl font-bold flex items-center gap-2 text-amber-400">
+        <i class="ph ph-horse text-2xl"></i> ÉquiMétéo
+      </h1>
+      <p class="text-xs text-slate-400">La Massicoterie • Les Essarts-le-Roi (78)</p>
+    </div>
+    <button onclick="fetchWeather()" aria-label="Actualiser la météo" title="Actualiser la météo" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700">
+      <i class="ph ph-arrows-clockwise text-lg" id="refresh-icon"></i>
+    </button>
+  </header>
+
+  <!-- Météo Actuelle -->
+  <section class="card rounded-2xl p-5 mb-4 text-center relative overflow-hidden shadow-lg">
+    <div class="text-sm font-medium text-slate-400" id="current-date">Aujourd'hui</div>
+    <div class="text-5xl font-extrabold my-2 text-white" id="temp">--°C</div>
+    <p class="text-sm text-slate-300 capitalize mb-4" id="weather-desc">Chargement des données météo...</p>
+
+    <div class="grid grid-cols-3 gap-2 border-t border-slate-700/60 pt-4 text-xs">
+      <div>
+        <div class="text-slate-400 flex items-center justify-center gap-1"><i class="ph ph-wind"></i> Vent</div>
+        <div class="font-bold text-slate-200 mt-1" id="wind">-- km/h</div>
+        <div class="text-[10px] text-slate-500" id="gusts">Rafales: --</div>
+      </div>
+      <div>
+        <div class="text-slate-400 flex items-center justify-center gap-1"><i class="ph ph-drop"></i> Pluie</div>
+        <div class="font-bold text-slate-200 mt-1" id="rain">-- mm</div>
+        <div class="text-[10px] text-slate-500" id="humidity">Humidité: --%</div>
+      </div>
+      <div>
+        <div class="text-slate-400 flex items-center justify-center gap-1"><i class="ph ph-thermometer"></i> Ressenti</div>
+        <div class="font-bold text-slate-200 mt-1" id="apparent-temp">--°C</div>
+        <div class="text-[10px] text-slate-500" id="pressure">-- hPa</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card rounded-2xl p-4 mb-4" aria-labelledby="forecast-title">
+    <div class="forecast-heading">
+      <h2 class="text-sm font-bold" id="forecast-title">Prévisions</h2>
+      <div class="forecast-tabs" role="tablist" aria-label="Période des prévisions">
+        <button id="hours-tab" type="button" role="tab" aria-selected="true" aria-controls="hours-panel" onclick="switchForecast('hours')">Heures</button>
+        <button id="week-tab" type="button" role="tab" aria-selected="false" aria-controls="week-panel" tabindex="-1" onclick="switchForecast('week')">7 jours</button>
+      </div>
+    </div>
+    <p id="forecast-status" class="text-xs text-slate-400" role="status">Chargement des prévisions...</p>
+    <div id="hours-panel" role="tabpanel" aria-labelledby="hours-tab" hidden>
+      <div class="forecast-legend"><span><b></b>Température</span><span><b class="felt-line"></b>Ressenti</span></div>
+      <div class="forecast-chart">
+        <div id="forecast-axis" class="forecast-axis" aria-hidden="true"></div>
+        <div id="forecast-scroll" class="forecast-scroll" tabindex="0" role="region" aria-label="Prévisions horaires, défilement horizontal">
+          <div id="forecast-track" class="forecast-track"></div>
+        </div>
+      </div>
+      <p id="forecast-detail" class="forecast-detail" aria-live="polite"></p>
+      <div class="forecast-footer">
+        <span id="forecast-range"></span>
+        <button class="forecast-next" id="forecast-next" type="button" title="Afficher les heures suivantes" aria-label="Afficher les heures suivantes" onclick="loadMoreHours(true)"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <div id="week-panel" role="tabpanel" aria-labelledby="week-tab" hidden>
+      <div class="forecast-legend"><span>Min. / Max.</span><span>Probabilité de pluie</span></div>
+      <div id="week-forecast"></div>
+    </div>
+  </section>
+
+  <!-- Recommandations Équestres Dynamiques -->
+  <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3 ml-1">Santé & Bien-être Équin</h2>
+  
+  <div class="space-y-3 mb-6">
+    <!-- Conseils Couverture -->
+    <div class="card rounded-xl p-4 flex gap-3 items-start">
+      <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400 text-2xl">
+        <i class="ph ph-coat-hanger"></i>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-slate-200">Recommandation Couverture</h3>
+        <p class="text-xs text-slate-400 mt-1" id="blanket-advice">Analyse en cours...</p>
+      </div>
+    </div>
+
+    <!-- Indice de Stress Thermique (THI) -->
+    <div class="card rounded-xl p-4 flex gap-3 items-start">
+      <div class="p-2 rounded-lg bg-orange-500/10 text-orange-400 text-2xl" id="thi-icon-box">
+        <i class="ph ph-fire"></i>
+      </div>
+      <div class="flex-1">
+        <div class="flex justify-between items-center">
+          <h3 class="text-sm font-bold text-slate-200">Indice Chaleur / THI</h3>
+          <span class="text-xs px-2 py-0.5 rounded font-bold" id="thi-badge">--</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1" id="thi-advice">Analyse de la sudation et de l'effort...</p>
+      </div>
+    </div>
+
+    <!-- Sols et Paddock (Gale de boue / Gel) -->
+    <div class="card rounded-xl p-4 flex gap-3 items-start">
+      <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-2xl">
+        <i class="ph ph-plant"></i>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-slate-200">État des Sols & Paddocks</h3>
+        <p class="text-xs text-slate-400 mt-1" id="ground-advice">Risque boue / praticabilité de la carrière...</p>
+      </div>
+    </div>
+
+    <!-- Risque Parasites / Insectes -->
+    <div class="card rounded-xl p-4 flex gap-3 items-start">
+      <div class="p-2 rounded-lg bg-purple-500/10 text-purple-400 text-2xl">
+        <i class="ph ph-bug"></i>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-slate-200">Insectes & Dermite (DERE)</h3>
+        <p class="text-xs text-slate-400 mt-1" id="bug-advice">Activité des culicoïdes et mouches...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const weatherCanvas = document.getElementById('weather-background');
+    const weatherContext = weatherCanvas.getContext('2d');
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    let weatherScene = { type: 'cloudy', night: false };
+    let sceneWidth = 0;
+    let sceneHeight = 0;
+    let sceneFrame = null;
+    let previousFrame = 0;
+    let sceneTime = 0;
+    const particles = Array.from({ length: 85 }, () => ({
+      horizontal: Math.random(), vertical: Math.random(), depth: .35 + Math.random() * .65
+    }));
+
+    function updateWeatherBackground(current) {
+      const code = current.weather_code;
+      let type = 'cloudy';
+      if (code === 0 || code === 1) type = 'sunny';
+      else if (code === 2) type = 'partly-cloudy';
+      else if (code === 45 || code === 48) type = 'fog';
+      else if ([71, 73, 75, 77, 85, 86].includes(code)) type = 'snow';
+      else if ([95, 96, 99].includes(code)) type = 'storm';
+      else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) type = 'rain';
+      else if (current.precipitation > 0) type = 'rain';
+      weatherScene = { type, night: current.is_day === 0 };
+      document.body.dataset.weather = type;
+      document.body.dataset.period = weatherScene.night ? 'night' : 'day';
+      document.querySelector('meta[name="theme-color"]').content = weatherScene.night ? '#101d30' : '#213b48';
+      restartWeatherAnimation();
+    }
+
+    function drawWeatherScene() {
+      if (!weatherContext) return;
+      const context = weatherContext;
+      const { type, night } = weatherScene;
+      const palettes = {
+        sunny: ['#247aaa', '#8ccbd6', '#efd7a1'],
+        'partly-cloudy': ['#397e9d', '#a8cbd0', '#dfd6b3'],
+        cloudy: ['#526d7a', '#8fa4ad', '#b9c3c4'],
+        rain: ['#263e50', '#536e7b', '#92a8ab'],
+        snow: ['#647e94', '#a4b9c8', '#e1e9e9'],
+        fog: ['#72878e', '#a6b5b7', '#c8d1cc'],
+        storm: ['#202b3c', '#404d60', '#6c8289']
+      };
+      const colors = night ? ['#0c172d', '#24374e', '#536575'] : palettes[type];
+      const sky = context.createLinearGradient(0, 0, 0, sceneHeight);
+      sky.addColorStop(0, colors[0]);
+      sky.addColorStop(.6, colors[1]);
+      sky.addColorStop(1, colors[2]);
+      context.fillStyle = sky;
+      context.fillRect(0, 0, sceneWidth, sceneHeight);
+
+      if (['sunny', 'partly-cloudy'].includes(type)) {
+        const sunHorizontal = sceneWidth * .78 + Math.sin(sceneTime * .13) * 12;
+        const sunVertical = sceneHeight * .16 + Math.cos(sceneTime * .1) * 8;
+        const radius = Math.min(sceneWidth * .12, 72);
+        const halo = context.createRadialGradient(sunHorizontal, sunVertical, radius * .4, sunHorizontal, sunVertical, radius * 4);
+        halo.addColorStop(0, night ? 'rgba(217,235,255,.25)' : 'rgba(255,229,157,.6)');
+        halo.addColorStop(1, 'rgba(255,229,157,0)');
+        context.fillStyle = halo;
+        context.fillRect(0, 0, sceneWidth, sceneHeight);
+        context.fillStyle = night ? '#e5eef5' : '#fff0bd';
+        context.beginPath();
+        context.arc(sunHorizontal, sunVertical, radius * (night ? .58 : 1), 0, Math.PI * 2);
+        context.fill();
+      }
+
+      if (night && ['sunny', 'partly-cloudy'].includes(type)) {
+        particles.slice(0, 35).forEach(particle => {
+          context.fillStyle = `rgba(236,245,255,${.35 + particle.depth * .5})`;
+          context.fillRect(particle.horizontal * sceneWidth, particle.vertical * sceneHeight * .55, 1.5, 1.5);
+        });
+      }
+
+      const cloudCount = type === 'sunny' ? 3 : type === 'fog' ? 10 : 7;
+      for (let cloudIndex = 0; cloudIndex < cloudCount; cloudIndex++) {
+        const cloudWidth = Math.max(230, sceneWidth * .5);
+        const cloudHorizontal = ((cloudIndex * 317 + sceneTime * (5 + cloudIndex % 3)) % (sceneWidth + cloudWidth * 2)) - cloudWidth;
+        const cloudVertical = sceneHeight * (.08 + (cloudIndex % 4) * .16);
+        const cloud = context.createRadialGradient(cloudHorizontal, cloudVertical, 0, cloudHorizontal, cloudVertical, cloudWidth);
+        const opacity = type === 'sunny' ? .13 : type === 'fog' ? .27 : .19;
+        cloud.addColorStop(0, `rgba(231,241,242,${night ? opacity * .35 : opacity})`);
+        cloud.addColorStop(1, 'rgba(231,241,242,0)');
+        context.save();
+        context.translate(0, cloudVertical * .65);
+        context.scale(1, .35);
+        context.fillStyle = cloud;
+        context.fillRect(cloudHorizontal - cloudWidth, cloudVertical - cloudWidth, cloudWidth * 2, cloudWidth * 2);
+        context.restore();
+      }
+
+      context.fillStyle = night ? 'rgba(12,32,31,.65)' : 'rgba(41,81,66,.4)';
+      context.beginPath();
+      context.moveTo(0, sceneHeight);
+      context.lineTo(0, sceneHeight * .87);
+      context.bezierCurveTo(sceneWidth * .28, sceneHeight * .77, sceneWidth * .58, sceneHeight * .96, sceneWidth, sceneHeight * .84);
+      context.lineTo(sceneWidth, sceneHeight);
+      context.fill();
+
+      if (['rain', 'storm', 'snow'].includes(type)) {
+        const snow = type === 'snow';
+        particles.forEach(particle => {
+          const vertical = ((particle.vertical + sceneTime * (snow ? .035 : .55) * particle.depth) % 1) * (sceneHeight + 30) - 15;
+          const horizontal = ((particle.horizontal * sceneWidth + (snow ? Math.sin(sceneTime * .6 + particle.vertical * 20) * 22 : -sceneTime * 80 * particle.depth)) % sceneWidth + sceneWidth) % sceneWidth;
+          context.beginPath();
+          if (snow) {
+            context.fillStyle = `rgba(248,252,255,${.45 + particle.depth * .45})`;
+            context.arc(horizontal, vertical, 1 + particle.depth * 2.5, 0, Math.PI * 2);
+            context.fill();
+          } else {
+            context.strokeStyle = `rgba(210,233,248,${.15 + particle.depth * .4})`;
+            context.lineWidth = particle.depth;
+            context.moveTo(horizontal, vertical);
+            context.lineTo(horizontal - 5, vertical + 12 + particle.depth * 14);
+            context.stroke();
+          }
+        });
+      }
+      if (type === 'storm' && !reducedMotion.matches) {
+        const lightning = sceneTime % 18;
+        if (lightning > 12 && lightning < 12.35) {
+          context.fillStyle = `rgba(226,234,255,${Math.sin((lightning - 12) / .35 * Math.PI) * .16})`;
+          context.fillRect(0, 0, sceneWidth, sceneHeight);
+        }
+      }
+    }
+
+    function animateWeather(timestamp) {
+      if (previousFrame && timestamp - previousFrame < 32) {
+        sceneFrame = requestAnimationFrame(animateWeather);
+        return;
+      }
+      if (previousFrame) sceneTime += Math.min((timestamp - previousFrame) / 1000, .1);
+      previousFrame = timestamp;
+      drawWeatherScene();
+      sceneFrame = requestAnimationFrame(animateWeather);
+    }
+
+    function restartWeatherAnimation() {
+      cancelAnimationFrame(sceneFrame);
+      sceneFrame = null;
+      previousFrame = 0;
+      drawWeatherScene();
+      if (!reducedMotion.matches && !document.hidden && weatherContext) sceneFrame = requestAnimationFrame(animateWeather);
+    }
+
+    function resizeWeatherScene() {
+      sceneWidth = innerWidth;
+      sceneHeight = innerHeight;
+      const resolution = Math.min(devicePixelRatio || 1, 2);
+      weatherCanvas.width = Math.round(sceneWidth * resolution);
+      weatherCanvas.height = Math.round(sceneHeight * resolution);
+      if (weatherContext) weatherContext.setTransform(resolution, 0, 0, resolution, 0, 0);
+      restartWeatherAnimation();
+    }
+
+    addEventListener('resize', resizeWeatherScene);
+    document.addEventListener('visibilitychange', restartWeatherAnimation);
+    reducedMotion.addEventListener('change', restartWeatherAnimation);
+    resizeWeatherScene();
+
+    // Coordonnées de La Massicoterie (Les Essarts-le-Roi)
+    const LAT = 48.6964;
+    const LON = 1.9381;
+    let forecastHours = [];
+    let forecastDays = [];
+    let visibleHours = 12;
+    let selectedHour = 0;
+    let forecastView = 'hours';
+    const hourlyStep = 64;
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+
+    function formatForecastDate(value, options) {
+      return new Date(value.length === 10 ? `${value}T12:00:00Z` : `${value}Z`)
+        .toLocaleDateString('fr-FR', { timeZone: 'UTC', ...options });
+    }
+
+    function forecastTemperature(value) {
+      return Number.isFinite(value) ? `${Math.round(value)}°` : '--';
+    }
+
+    function forecastIcon(code, isDay = 1) {
+      if ([0, 1].includes(code)) return isDay ? 'ph-sun' : 'ph-moon';
+      if (code === 2) return isDay ? 'ph-cloud-sun' : 'ph-cloud-moon';
+      if ([45, 48].includes(code)) return 'ph-cloud-fog';
+      if ([71, 73, 75, 77, 85, 86].includes(code)) return 'ph-snowflake';
+      if ([95, 96, 99].includes(code)) return 'ph-cloud-lightning';
+      if (code >= 51 && code <= 82) return 'ph-cloud-rain';
+      return 'ph-cloud';
+    }
+
+    function svgElement(tag, attributes) {
+      const element = document.createElementNS(svgNamespace, tag);
+      for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+      return element;
+    }
+
+    function selectForecastHour(index) {
+      selectedHour = index;
+      const hour = forecastHours[index];
+      if (!hour) return;
+      const date = formatForecastDate(hour.time, { weekday: 'short', day: 'numeric', month: 'short' });
+      const rain = Number.isFinite(hour.rain) ? ` · Pluie ${hour.rain}%` : '';
+      document.getElementById('forecast-detail').textContent = `${date} · ${hour.time.slice(11, 13)} h · ${forecastTemperature(hour.temperature)}C · Ressenti ${forecastTemperature(hour.apparent)}C${rain}`;
+      document.querySelectorAll('.hour-point').forEach((button, buttonIndex) => button.setAttribute('aria-pressed', buttonIndex === index));
+    }
+
+    function renderHourlyForecast() {
+      const track = document.getElementById('forecast-track');
+      const axis = document.getElementById('forecast-axis');
+      track.replaceChildren();
+      axis.replaceChildren();
+      const hours = forecastHours.slice(0, visibleHours);
+      const width = hours.length * hourlyStep;
+      track.style.width = `${width}px`;
+      const temperatures = forecastHours.flatMap(hour => [hour.temperature, hour.apparent]).filter(Number.isFinite);
+      const minimum = Math.floor((temperatures.length ? Math.min(...temperatures) : 0) / 5) * 5 - 2;
+      const maximum = Math.ceil((temperatures.length ? Math.max(...temperatures) : 10) / 5) * 5 + 2;
+      const positionY = temperature => 18 + (maximum - temperature) / (maximum - minimum) * 146;
+      const chart = svgElement('svg', { width, height: 184, viewBox: `0 0 ${width} 184`, role: 'img', 'aria-label': 'Température prévue en trait plein et ressenti en pointillés, en degrés Celsius' });
+      for (let tick = 0; tick < 4; tick++) {
+        const temperature = maximum - tick * (maximum - minimum) / 3;
+        const vertical = positionY(temperature);
+        const label = document.createElement('span');
+        label.style.top = `${vertical}px`;
+        label.textContent = `${Math.round(temperature)}°`;
+        axis.append(label);
+        chart.append(svgElement('line', { x1: 0, x2: width, y1: vertical, y2: vertical, stroke: 'rgba(255,255,255,.12)' }));
+      }
+      for (const [property, color, dashed] of [['temperature', '#fcd477', false], ['apparent', '#9de5ef', true]]) {
+        let path = '';
+        let connected = false;
+        hours.forEach((hour, index) => {
+          const value = hour[property];
+          if (!Number.isFinite(value)) { connected = false; return; }
+          path += `${connected ? 'L' : 'M'}${index * hourlyStep + hourlyStep / 2},${positionY(value)} `;
+          connected = true;
+        });
+        chart.append(svgElement('path', { d: path, fill: 'none', stroke: color, 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': dashed ? '5 5' : 'none', 'data-series': property }));
+        hours.forEach((hour, index) => {
+          if (!Number.isFinite(hour[property])) return;
+          chart.append(svgElement('circle', { cx: index * hourlyStep + hourlyStep / 2, cy: positionY(hour[property]), r: 2.5, fill: color }));
+        });
+      }
+      const labels = document.createElement('div');
+      labels.className = 'forecast-hours';
+      hours.forEach((hour, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'hour-point';
+        const date = formatForecastDate(hour.time, { weekday: 'short', day: 'numeric' });
+        button.setAttribute('aria-label', `${date}, ${hour.time.slice(11, 13)} heures, température ${forecastTemperature(hour.temperature)}, ressenti ${forecastTemperature(hour.apparent)}, ${getWeatherDescription(hour.code)}`);
+        button.title = button.getAttribute('aria-label');
+        const time = document.createElement('span');
+        time.textContent = `${hour.time.slice(11, 13)} h`;
+        const icon = document.createElement('i');
+        icon.className = `ph ${forecastIcon(hour.code, hour.isDay)}`;
+        icon.setAttribute('aria-hidden', 'true');
+        const value = document.createElement('span');
+        value.textContent = forecastTemperature(hour.temperature);
+        const day = document.createElement('small');
+        day.textContent = date;
+        button.append(time, icon, value, day);
+        button.addEventListener('click', () => selectForecastHour(index));
+        labels.append(button);
+      });
+      track.append(chart, labels);
+      document.getElementById('forecast-range').textContent = `${hours.length} / ${forecastHours.length} heures`;
+      document.getElementById('forecast-next').disabled = hours.length >= forecastHours.length;
+      selectForecastHour(selectedHour);
+    }
+
+    function loadMoreHours(advance = false) {
+      if (visibleHours >= forecastHours.length) return;
+      const scroller = document.getElementById('forecast-scroll');
+      const previousEnd = visibleHours * hourlyStep;
+      const previousScroll = scroller.scrollLeft;
+      visibleHours = Math.min(visibleHours + 12, forecastHours.length);
+      renderHourlyForecast();
+      scroller.scrollLeft = advance ? previousEnd - hourlyStep : previousScroll;
+    }
+
+    function renderWeeklyForecast() {
+      const list = document.getElementById('week-forecast');
+      list.replaceChildren();
+      forecastDays.forEach((day, index) => {
+        const row = document.createElement('div');
+        row.className = 'week-row';
+        const date = document.createElement('div');
+        date.textContent = index === 0 ? "Aujourd'hui" : formatForecastDate(day.time, { weekday: 'long' });
+        const shortDate = document.createElement('small');
+        shortDate.textContent = formatForecastDate(day.time, { day: 'numeric', month: 'short' });
+        date.append(shortDate);
+        const icon = document.createElement('i');
+        icon.className = `ph ${forecastIcon(day.code)}`;
+        icon.setAttribute('role', 'img');
+        icon.setAttribute('aria-label', getWeatherDescription(day.code));
+        icon.title = getWeatherDescription(day.code);
+        const rain = document.createElement('span');
+        rain.className = 'week-rain';
+        rain.textContent = Number.isFinite(day.rain) ? `${day.rain}%` : '--';
+        const temperatures = document.createElement('div');
+        temperatures.className = 'week-temperatures';
+        temperatures.setAttribute('aria-label', `Minimum ${forecastTemperature(day.minimum)}, maximum ${forecastTemperature(day.maximum)}`);
+        const minimum = document.createElement('span');
+        minimum.textContent = forecastTemperature(day.minimum);
+        const maximum = document.createElement('strong');
+        maximum.textContent = forecastTemperature(day.maximum);
+        temperatures.append(minimum, maximum);
+        row.append(date, icon, rain, temperatures);
+        list.append(row);
+      });
+    }
+
+    function switchForecast(view) {
+      forecastView = view;
+      for (const name of ['hours', 'week']) {
+        const selected = name === view;
+        const tab = document.getElementById(`${name}-tab`);
+        tab.setAttribute('aria-selected', selected);
+        tab.tabIndex = selected ? 0 : -1;
+        document.getElementById(`${name}-panel`).hidden = !selected || !(name === 'hours' ? forecastHours.length : forecastDays.length);
+      }
+      const available = view === 'hours' ? forecastHours.length : forecastDays.length;
+      const status = document.getElementById('forecast-status');
+      status.hidden = Boolean(available);
+      if (!available) status.textContent = 'Prévisions indisponibles pour cette période.';
+    }
+
+    function updateForecast(data) {
+      const hourly = data.hourly;
+      const start = (data.current.time || hourly?.time?.[0] || '').slice(0, 13) + ':00';
+      forecastHours = (hourly?.time || []).map((time, index) => ({
+        time, temperature: hourly.temperature_2m?.[index], apparent: hourly.apparent_temperature?.[index],
+        code: hourly.weather_code?.[index], rain: hourly.precipitation_probability?.[index], isDay: hourly.is_day?.[index]
+      })).filter(hour => hour.time >= start);
+      const daily = data.daily;
+      forecastDays = (daily?.time || []).slice(0, 7).map((time, index) => ({
+        time, minimum: daily.temperature_2m_min?.[index], maximum: daily.temperature_2m_max?.[index],
+        code: daily.weather_code?.[index], rain: daily.precipitation_probability_max?.[index]
+      }));
+      visibleHours = Math.min(12, forecastHours.length);
+      selectedHour = 0;
+      document.getElementById('forecast-scroll').scrollLeft = 0;
+      renderHourlyForecast();
+      renderWeeklyForecast();
+      switchForecast(forecastView);
+    }
+
+    document.getElementById('forecast-scroll').addEventListener('scroll', event => {
+      const scroller = event.currentTarget;
+      if (forecastView === 'hours' && scroller.clientWidth > 0 && scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 96) loadMoreHours();
+    }, { passive: true });
+    document.querySelector('.forecast-tabs').addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const view = event.key === 'Home' ? 'hours' : event.key === 'End' ? 'week' : forecastView === 'hours' ? 'week' : 'hours';
+      switchForecast(view);
+      document.getElementById(`${view}-tab`).focus();
+    });
+
+    async function fetchWeather() {
+      const refreshIcon = document.getElementById('refresh-icon');
+      refreshIcon.classList.add('animate-spin');
+
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.search = new URLSearchParams({
+        latitude: LAT, longitude: LON,
+        current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure,wind_speed_10m,wind_gusts_10m,weather_code,is_day',
+        hourly: 'temperature_2m,apparent_temperature,precipitation,weather_code,precipitation_probability,is_day',
+        daily: 'temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max',
+        forecast_days: 7, timezone: 'Europe/Paris'
+      });
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        updateUI(data);
+      } catch (e) {
+        const hasWeather = document.getElementById('temp').innerText !== '--°C';
+        document.getElementById('weather-desc').innerText = hasWeather
+          ? 'Actualisation impossible. Dernières données affichées, à vérifier avant utilisation.'
+          : 'Météo indisponible. Vérifiez votre connexion puis actualisez.';
+        const status = document.getElementById('forecast-status');
+        status.hidden = false;
+        status.textContent = forecastHours.length || forecastDays.length
+          ? 'Actualisation impossible. Prévisions précédentes affichées.'
+          : 'Prévisions indisponibles. Vérifiez votre connexion puis actualisez.';
+      } finally {
+        refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    function updateUI(data) {
+      const cur = data.current;
+      updateWeatherBackground(cur);
+      updateForecast(data);
+      const tempC = Math.round(cur.temperature_2m);
+      const appTemp = Math.round(cur.apparent_temperature);
+      const windSpeed = Math.round(cur.wind_speed_10m);
+      const windGusts = Math.round(cur.wind_gusts_10m);
+      const humidity = cur.relative_humidity_2m;
+      const rain = cur.precipitation;
+      const pressure = Math.round(cur.surface_pressure);
+
+      // MAJ météo
+      document.getElementById('temp').innerText = `${tempC}°C`;
+      document.getElementById('apparent-temp').innerText = `${appTemp}°C`;
+      document.getElementById('wind').innerText = `${windSpeed} km/h`;
+      document.getElementById('gusts').innerText = `Rafales: ${windGusts} km/h`;
+      document.getElementById('rain').innerText = `${rain} mm`;
+      document.getElementById('humidity').innerText = `Humidité: ${humidity}%`;
+      document.getElementById('pressure').innerText = `${pressure} hPa`;
+      document.getElementById('weather-desc').innerText = getWeatherDescription(cur.weather_code);
+      document.getElementById('current-date').innerText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+      // ANALYSE 1: Couverture
+      let blanketText = "";
+      if (appTemp < 0) {
+        blanketText = "Froid intense : Couverture chaude (200-300g) pour chevaux tondus / 100g ou imperméable doublée pour chevaux rustiques.";
+      } else if (appTemp >= 0 && appTemp < 10) {
+        blanketText = (rain > 0 || windSpeed > 25) 
+          ? "Humide et venteux : Imperméable (0g à 100g) recommandée pour éviter que le poil ne se plaque." 
+          : "Frais sec : Poil d'hiver suffisant pour non-tondu. 100g conseillé pour cheval tondu.";
+      } else if (appTemp >= 10 && appTemp < 18) {
+        blanketText = (rain > 1) ? "Pluie modérée : Imperméable simple (0g) si cheval au pré." : "Température tempérée : Pas de couverture nécessaire (sauf tondu sensible la nuit).";
+      } else {
+        blanketText = "Douceur/Chaleur : Laisser au naturel. Attention aux coups de soleil si ladre.";
+      }
+      document.getElementById('blanket-advice').innerText = blanketText;
+
+      // ANALYSE 2: Indice THI Équin (T°F + Humidité)
+      const tempF = (cur.temperature_2m * 9/5) + 32;
+      const thi = Math.round(tempF + humidity);
+      const badge = document.getElementById('thi-badge');
+      
+      if (thi < 130) {
+        badge.innerText = `THI ${thi} (Normal)`;
+        badge.className = "text-xs px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400";
+        document.getElementById('thi-advice').innerText = "Thermorégulation optimale. Travail et paddock sans restriction de chaleur.";
+      } else if (thi >= 130 && thi < 150) {
+        badge.innerText = `THI ${thi} (Moyen)`;
+        badge.className = "text-xs px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-400";
+        document.getElementById('thi-advice').innerText = "Refroidissement ralenti. Proposer à boire après effort, doucher si travail intensif.";
+      } else {
+        badge.innerText = `THI ${thi} (Alerte)`;
+        badge.className = "text-xs px-2 py-0.5 rounded font-bold bg-red-500/20 text-red-400";
+        document.getElementById('thi-advice').innerText = "Danger coup de chaleur ! Réduire l'effort, privilégier le travail tôt le matin et ombre.";
+      }
+
+      // ANALYSE 3: État des sols & Paddock
+      if (appTemp < 0) {
+        document.getElementById('ground-advice').innerText = "Sol dur / gelé. Attention aux tendons et risques d'abcès de pied. Vérifier que les abreuvoirs ne sont pas pris par la glace.";
+      } else if (rain > 2 || humidity > 90) {
+        document.getElementById('ground-advice').innerText = "Humidité élevée. Risque de gale de boue (surveiller les paturons) et ramollissement de la corne/fourchette. Paddocks gras.";
+      } else {
+        document.getElementById('ground-advice').innerText = "Sols praticables. Pensez à arroser la carrière si sol sec et venteux pour limiter les poussières respiratoires.";
+      }
+
+      // ANALYSE 4: Insectes
+      if (tempC > 15 && windSpeed < 18) {
+        document.getElementById('bug-advice').innerText = "Conditions propices aux moucherons (culicoïdes) et mouches. Masque anti-mouches et lotion apaisante conseillés si sujet dermiteux.";
+      } else {
+        document.getElementById('bug-advice').innerText = "Faible activité des insectes (température fraîche ou vent suffisant pour les chasser).";
+      }
+    }
+
+    function getWeatherDescription(code) {
+      const mapping = {
+        0: 'Ciel dégagé', 1: 'Principalement dégagé', 2: 'Partiellement nuageux', 3: 'Couvert',
+        45: 'Brouillard', 48: 'Brouillard givrant', 51: 'Bruine légère', 53: 'Bruine modérée',
+        55: 'Bruine dense', 56: 'Bruine verglaçante légère', 57: 'Bruine verglaçante dense',
+        61: 'Pluie faible', 63: 'Pluie modérée', 65: 'Forte pluie', 66: 'Pluie verglaçante légère',
+        67: 'Pluie verglaçante forte', 71: 'Neige légère', 73: 'Neige modérée', 75: 'Neige forte',
+        77: 'Grains de neige', 80: 'Averses faibles', 81: 'Averses modérées', 82: 'Averses violentes',
+        85: 'Averses de neige faibles', 86: 'Averses de neige fortes', 95: 'Orage',
+        96: 'Orage avec grêle', 99: 'Orage avec forte grêle'
+      };
+      return mapping[code] || 'Temps variable';
+    }
+
+    // Chargement automatique
+    fetchWeather();
+  </script>
+</body>
+</html>
